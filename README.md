@@ -82,3 +82,32 @@ npm run dev
 
 # Navigate to URL shown in terminal in your web browser
 ```
+
+# Management UI
+
+This repository also includes a management UI for managing companies, calls, appointments, documents, and RAG search. The management UI is a separate React app located in the `mgmt-ui/` directory.
+
+**Features:**
+- Multi-tenant company management with custom OpenAI configurations
+- Call logging and conversation tracking
+- Appointment scheduling
+- Document management with Supabase Storage
+- RAG (Retrieval Augmented Generation) with PGvector
+
+**Quick Start:**
+```shell
+# 1. Start Supabase
+supabase start
+
+# 2. Set up the management UI
+cd mgmt-ui/
+npm install
+# Configure .env.local with Supabase credentials
+npm run dev
+```
+
+**Documentation:**
+- [Quick Start Guide](docs/QUICKSTART.md)
+- [Product Requirements](docs/PRD-call-management-app.md)
+- [Setup Instructions](docs/SETUP.md)
+- [React Development Guide](docs/REACT-APP-GUIDE.md)

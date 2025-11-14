@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Supabase CRUD</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .config {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        input, button {
+            padding: 8px;
+            margin: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .error {
+            color: red;
+            margin: 10px 0;
+        }
+        .success {
+            color: green;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Supabase Data Manager</h1>
+    
+    <div class="config">
+        <h3>Configuration</h3>
+        <input type="text" id="supabaseUrl" placeholder="Supabase URL" style="width: 300px;">
+        <input type="text" id="supabaseKey" placeholder="Supabase Anon Key" style="width: 300px;">
+        <button onclick="connect()">Connect</button>
+        <div id="status"></div>
+    </div>
+
+    <div id="app" style="display: none;">
+        <h3>Add New Item</h3>
+        <input type="text" id="itemName" placeholder="Name">
+        <input type="text" id="itemValue" placeholder="Value">
+        <button onclick="addItem()">Add Item</button>
+
+        <h3>Items</h3>
+        <button onclick="loadItems()">Refresh</button>
+        <div id="message"></div>
+        <table id="itemsTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Value</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="itemsBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        let supabase;
+
+        function connect() {
+            const url = document.getElementById('supabaseUrl').value;
+            const key = document.getElementById('supabaseKey').value;
+            
+            if (!url || !key) {
+                showStatus('Please enter both URL and Key', 'error');
+                return;
+            }
+
+            supabase = window.supabase.createClient(url, key);
+            showStatus('Connected! Loading data...', 'success');
+            document.getElementById('app').style.display = 'block';
+            loadItems();
+        }
+
+        async function loadItems() {
+            try {
+                const { data, error } = await supabase
+                    .from('items')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                displayItems(data || []);
+                showMessage('Items loaded successfully', 'success');
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function addItem() {
+            const name = document.getElementById('itemName').value;
+            const value = document.getElementById('itemValue').value;
+
+            if (!name || !value) {
+                showMessage('Please enter both name and value', 'error');
+                return;
+            }
+
+            try {
+                const { error } = await supabase
+                    .from('items')
+                    .insert([{ name, value }]);
+
+                if (error) throw error;
+
+                document.getElementById('itemName').value = '';
+                document.getElementById('itemValue').value = '';
+                showMessage('Item added successfully', 'success');
+                loadItems();
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteItem(id) {
+            if (!confirm('Are you sure?')) return;
+
+            try {
+                const { error } = await supabase
+                    .from('items')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) throw error;
+
+                showMessage('Item deleted successfully', 'success');
+                loadItems();
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+
+        function displayItems(items) {
+            const tbody = document.getElementById('itemsBody');
+            tbody.innerHTML = items.map(item => `
+                <tr>
+                    <td>${item.id}</td>
+                    <td>${item.name}</td>
+                    <td>${item.value}</td>
+                    <td>${new Date(item.created_at).toLocaleString()}</td>
+                    <td><button onclick="deleteItem(${item.id})">Delete</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function showStatus(msg, type) {
+            document.getElementById('status').innerHTML = `<div class="${type}">${msg}</div>`;
+        }
+
+        function showMessage(msg, type) {
+            document.getElementById('message').innerHTML = `<div class="${type}">${msg}</div>`;
+        }
+    </script>
+</body>
+</html>
+
