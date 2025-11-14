@@ -1,6 +1,6 @@
 # Company Configuration Integration
 
-This document describes how the voice agent server (`02_db_backed.py`) integrates with the Supabase database to fetch company-specific configurations.
+This document describes how the voice agent servers (`02_db_backed.py` and `03_rag.py`) integrate with the Supabase database to fetch company-specific configurations.
 
 ## Overview
 
@@ -10,6 +10,8 @@ The voice agent accepts a `company_id` as a command-line argument at startup and
 - LLM model
 
 This allows running separate voice agent instances for different companies, each with their own configuration.
+
+**Note:** `03_rag.py` extends `02_db_backed.py` with RAG (Retrieval-Augmented Generation) capabilities. See `server/README_RAG_VOICE_AGENT.md` for RAG-specific documentation.
 
 ## Changes Made
 
@@ -194,14 +196,15 @@ Start the server with a specific company ID as an argument:
 ```bash
 cd server
 
-# Start with company ID 1 (Acme Corporation)
+# Start basic DB-backed agent with company ID 1
 uv run python 02_db_backed.py 1
 
-# Or with company ID 2 (TechStart Inc)
-uv run python 02_db_backed.py 2
+# Or start RAG-enabled agent with company ID 1
+uv run python 03_rag.py 1
 
-# Or with company ID 3 (Global Services Ltd)
-uv run python 02_db_backed.py 3
+# With different company IDs
+uv run python 02_db_backed.py 2
+uv run python 03_rag.py 3
 ```
 
 You should see output like:

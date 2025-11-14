@@ -47,17 +47,32 @@ class LLMTextFilter(FrameProcessor):
     """
     Filters and cleans text from LLM output before it goes to TTS.
     """
-    
+
     def clean_text(self, text: str) -> str:
         """Apply all filter patterns to clean the text."""
         # Uses compiled regex patterns for efficiency
         # Returns cleaned text suitable for TTS
-        
+
     async def process_frame(self, frame: Frame, direction):
         """Process frames, filtering TextFrames before they reach TTS."""
-        # Only filters TextFrame objects
+        # Filters TextFrame objects (LLM output)
+        # Passes through LLMFullResponseEndFrame (signals completion)
         # Passes through all other frame types unchanged
 ```
+
+### Critical: LLMFullResponseEndFrame Handling
+
+The filter **must** pass through `LLMFullResponseEndFrame` immediately. This frame signals to downstream processors (like TTS) that the LLM has finished generating its response and they should flush any buffered content.
+
+**Without this:**
+- The last sentence of the LLM response gets held in TTS buffer
+- TTS waits for more text that never comes
+- The last sentence only plays when the user speaks again (triggering a new LLM response)
+
+**With this:**
+- `LLMFullResponseEndFrame` signals completion
+- TTS immediately flushes and speaks the last sentence
+- Natural conversation flow is maintained
 
 ### Integration in Pipeline
 
@@ -187,18 +202,109 @@ To test the text filter:
 
 ## Troubleshooting
 
-**Text filter not working:**
-- Check that `text_filter.py` is in the `server/` directory
-- Verify the import in `02_db_backed.py`
-- Check logs for any errors during initialization
+### Last Sentence Not Spoken Until User Speaks Again
 
-**Too much text being removed:**
+**Symptom**: The agent stops speaking before the last sentence, then speaks it only when the user starts talking again. When interrupted, the agent's next response starts with the last sentence from the previous response.
+
+**Root Cause**: Pipecat's `TTSService` has built-in sentence aggregation (`aggregate_sentences=True` by default) that buffers text until it detects a complete sentence. The last sentence gets held in the buffer waiting for more text that never comes.
+
+**The Problem with Simple Solutions**:
+- ❌ `aggregate_sentences=False` → TTS speaks word-by-word (terrible quality, see error.log)
+- ❌ Keep `aggregate_sentences=True` → Last sentence gets stuck in buffer
+- ✅ **Custom sentence aggregator that flushes on `LLMFullResponseEndFrame`** → Natural sentences + immediate completion
+
+**Solution - Custom Sentence Aggregator (RECOMMENDED)**:
+
+Use the custom `SentenceAggregator` processor that:
+1. Buffers text into complete sentences (natural speech)
+2. Flushes immediately when it receives `LLMFullResponseEndFrame` (no stuck sentences)
+
+**Implementation** (`server/sentence_aggregator.py`):
+
+```python
+from sentence_aggregator import SentenceAggregator
+
+# Disable built-in TTS aggregation
+tts = TTSMLXIsolated(
+    model="mlx-community/Kokoro-82M-bf16",
+    voice="af_heart",
+    sample_rate=24000,
+    aggregate_sentences=False  # We use custom aggregator instead
+)
+
+# Create sentence aggregator
+sentence_aggregator = SentenceAggregator()
+
+# Pipeline order is critical
+pipeline = Pipeline([
+    # ...
+    llm,
+    text_filter,           # Clean text first
+    sentence_aggregator,   # Then aggregate into sentences
+    tts,                   # Then speak
+    # ...
+])
+```
+
+**How It Works**:
+1. LLM streams tokens: "Hello", " there", "!", " How", " can", " I", " help", "?"
+2. Text filter cleans each token
+3. Sentence aggregator buffers: "Hello there!"
+4. When it sees "!" (sentence end), it flushes to TTS
+5. Continues buffering: "How can I help?"
+6. When `LLMFullResponseEndFrame` arrives, flushes remaining text
+7. TTS speaks complete sentences naturally
+
+**Verification**:
+- Test by asking a question and verifying the complete response is spoken immediately
+- The agent should not wait for you to speak before finishing its response
+- When you interrupt, the next response should NOT start with the previous last sentence
+- Check logs for:
+  ```
+  SentenceAggregator: Detected sentence end
+  SentenceAggregator: Flushing buffer: 'Hello there!'
+  SentenceAggregator: Received LLMFullResponseEndFrame, flushing buffer
+  ```
+
+### Text Filter Not Working
+
+**Symptom**: Agent reads asterisks, underscores, or other markdown symbols
+
+**Possible causes:**
+- Check that `text_filter.py` is in the `server/` directory
+- Verify the import in `02_db_backed.py` or `03_rag.py`
+- Check logs for any errors during initialization
+- Ensure filter is in the pipeline between LLM and TTS
+
+**Solution:**
+```python
+# Verify pipeline order in run_bot():
+pipeline = Pipeline([
+    # ...
+    llm,
+    text_filter,  # Must be AFTER llm, BEFORE tts
+    tts,
+    # ...
+])
+```
+
+### Too Much Text Being Removed
+
+**Symptom**: Important words or phrases are missing from spoken output
+
+**Solution:**
 - Review the regex patterns in `text_filter.py`
 - Adjust patterns to be more specific
 - Test with sample inputs
+- Check logs to see what's being filtered
 
-**Not enough text being removed:**
+### Not Enough Text Being Removed
+
+**Symptom**: Agent still reads unwanted symbols or formatting
+
+**Solution:**
 - Add additional patterns to `self._patterns`
-- Check the LLM output format
+- Check the LLM output format in logs
 - Consider updating the system prompt to discourage certain formatting
+- Test patterns with regex tools before adding
 

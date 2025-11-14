@@ -8,7 +8,7 @@ such as asterisks, markdown formatting, and other special characters.
 import re
 
 from loguru import logger
-from pipecat.frames.frames import Frame, TextFrame
+from pipecat.frames.frames import Frame, TextFrame, LLMFullResponseEndFrame
 from pipecat.processors.frame_processor import FrameProcessor
 
 
@@ -111,6 +111,12 @@ class LLMTextFilter(FrameProcessor):
             else:
                 logger.debug(f"LLMTextFilter: No changes needed, passing through")
                 await self.push_frame(frame, direction)
+        elif isinstance(frame, LLMFullResponseEndFrame):
+            # CRITICAL: Pass through LLMFullResponseEndFrame immediately
+            # This signals to downstream processors (like TTS) that the LLM is done
+            # and they should flush any buffered content
+            logger.debug("LLMTextFilter: Passing through LLMFullResponseEndFrame")
+            await self.push_frame(frame, direction)
         else:
             # Pass through all other frame types unchanged
             await self.push_frame(frame, direction)

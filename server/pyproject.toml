@@ -21,4 +21,5 @@ dependencies = [
     "pyobjc-framework-Cocoa",
     "pyobjc-framework-ApplicationServices",
     "supabase",
+    "openai>=1.99.1",
 ]
