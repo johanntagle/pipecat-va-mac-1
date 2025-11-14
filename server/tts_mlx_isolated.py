@@ -108,7 +108,7 @@ class TTSMLXIsolated(TTSService):
             # Read response with timeout
             import select
 
-            ready, _, _ = select.select([self._process.stdout], [], [], 10.0)  # 10 second timeout
+            ready, _, _ = select.select([self._process.stdout], [], [], 30.0)  # 30 second timeout for model loading
 
             if not ready:
                 return {"error": "Worker response timeout"}
