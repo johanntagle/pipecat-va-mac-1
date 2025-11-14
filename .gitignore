@@ -11,3 +11,4 @@ __pycache__
 .env.test.local
 .env.production.local
 supabase/config.txt
+server/error.log
