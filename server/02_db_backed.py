@@ -32,6 +32,7 @@ from pipecat.transports.network.webrtc_connection import IceServer, SmallWebRTCC
 from pipecat.processors.aggregators.llm_response import LLMUserAggregatorParams
 
 from tts_mlx_isolated import TTSMLXIsolated
+from text_filter import LLMTextFilter
 
 load_dotenv(override=True)
 
@@ -106,6 +107,9 @@ async def run_bot(webrtc_connection, openai_api_key: str, system_prompt: str, ll
     #
     rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
+    # Text filter to clean LLM output before TTS
+    text_filter = LLMTextFilter()
+
     pipeline = Pipeline(
         [
             transport.input(),
@@ -113,6 +117,7 @@ async def run_bot(webrtc_connection, openai_api_key: str, system_prompt: str, ll
             rtvi,
             context_aggregator.user(),
             llm,
+            text_filter,  # Clean text before TTS
             tts,
             transport.output(),
             context_aggregator.assistant(),
@@ -155,7 +160,7 @@ async def offer(request: dict, background_tasks: BackgroundTasks):
 
     # Use the global company configuration loaded at startup
     openai_api_key = COMPANY_CONFIG["openai_api_key"]
-    system_prompt = COMPANY_CONFIG["system_prompt"]
+    system_prompt = COMPANY_CONFIG["system_prompt"] + '. Do not format your answer in any markdown or include "asterisk" or "star" or any symbols that should not be read or spoken. When giving phone numbers, give the numbers to be read e.g. ZERO NINE ONE SEVEN, etc. When giving time, give the time to be read e.g. TEN THIRTY, etc.'
     llm_model = COMPANY_CONFIG["llm_model"]
 
     if pc_id and pc_id in pcs_map:

@@ -120,7 +120,37 @@ if __name__ == "__main__":
     uvicorn.run(app, host=args.host, port=args.port)
 ```
 
-### 2. Client Changes
+### 2. Text Filtering (`server/text_filter.py`)
+
+Added a custom text filter processor to clean LLM output before TTS:
+
+```python
+from text_filter import LLMTextFilter
+
+# In the pipeline
+text_filter = LLMTextFilter()
+
+pipeline = Pipeline([
+    transport.input(),
+    stt,
+    rtvi,
+    context_aggregator.user(),
+    llm,
+    text_filter,  # Clean text before TTS
+    tts,
+    transport.output(),
+    context_aggregator.assistant(),
+])
+```
+
+The text filter removes:
+- Asterisks and underscores used for emphasis (`*text*`, `**text**`, `_text_`, `__text__`)
+- Markdown formatting (headers, code blocks, links)
+- Excessive whitespace
+
+See [TEXT-FILTERING.md](TEXT-FILTERING.md) for complete documentation.
+
+### 3. Client Changes
 
 No changes to the client - it remains unchanged and connects to `/api/offer` as before.
 
