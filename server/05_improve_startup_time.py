@@ -82,20 +82,14 @@ If the context doesn't contain relevant information for a question, rely on your
 """
 
 # Appointment booking instructions
+
 APPOINTMENT_INSTRUCTIONS = """
-You have the ability to book appointments for users. When a user wants to schedule an appointment, book something, or set up a meeting:
-
-1. Collect the following information naturally in conversation:
-   - Caller's full name
-   - Caller's contact number (phone number)
-   - Appointment details (what they want to book, preferred date/time, purpose, etc.)
-
-2. Once you have all the required information, use the book_appointment function to create the appointment.
-
-3. After successfully booking, confirm the appointment details with the user.
-
-4. If any required information is missing, politely ask for it before booking.
+BOOKING APPOINTMENTS:
+When booking, collect: caller's name, contact number, and appointment details.
+Use the book_appointment function once you have all information.
+Confirm details after booking.
 """
+
 
 # RAG configuration
 RAG_CONFIG = {
